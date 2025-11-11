@@ -7,34 +7,42 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
   directUrl = env("DATABASE_URL")
-  relationMode = "prisma"
 }
 
 model Payment {
   id             String        @id @default(uuid())
-  bookingId      String        @unique
+  bookingId      String
   userId         String
   amount         Decimal       @db.Decimal(10,2)
   currency       String        @default("LKR")
   feeAmount      Decimal?      @db.Decimal(10,2)
   netAmount      Decimal?      @db.Decimal(10,2)
   psp            String
-  pspPaymentId   String?       @unique
+  pspPaymentId   String?
   pspReference   String?
   paymentMethod  String
   status         String        @default("CREATED")
-  idempotencyKey String?       @unique
+  idempotencyKey String?
   metadata       Json?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   expiresAt      DateTime?
   events         PaymentEvent[]
   refunds        Refund[]
+
+  @@unique([bookingId])
+  @@unique([pspPaymentId])
+  @@unique([idempotencyKey])
+  @@index([bookingId])
+  @@index([userId])
+  @@index([pspPaymentId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model PaymentEvent {
   id           String   @id @default(uuid())
-  paymentId    String
+  paymentId    String?
   eventType    String
   eventSource  String
   payload      Json
@@ -42,7 +50,11 @@ model PaymentEvent {
   statusAfter  String?
   createdAt    DateTime @default(now())
 
-  payment      Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  payment      Payment?  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([eventType])
+  @@index([createdAt])
 }
 
 model Refund {
@@ -58,6 +70,9 @@ model Refund {
   updatedAt    DateTime @updatedAt
 
   payment      Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([status])
 }
 
 model IdempotencyKey {
@@ -67,4 +82,17 @@ model IdempotencyKey {
   responseBody   Json?
   expiresAt      DateTime?
   createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model WebhookAuditLog {
+  id          String   @id @default(uuid())
+  eventSource String
+  payload     Json
+  reason      String
+  createdAt   DateTime @default(now())
+
+  @@index([eventSource])
+  @@index([createdAt])
 }
