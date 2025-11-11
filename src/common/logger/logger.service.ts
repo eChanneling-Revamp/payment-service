@@ -1,4 +1,8 @@
-import { Injectable, LoggerService as NestLoggerService, Scope } from '@nestjs/common';
+import {
+  Injectable,
+  LoggerService as NestLoggerService,
+  Scope,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable({ scope: Scope.TRANSIENT })
@@ -50,20 +54,20 @@ export class LoggerService implements NestLoggerService {
     const logContext = context || this.context || 'Application';
 
     if (this.logFormat === 'json') {
-      const logObject = {
-        timestamp,
-        level,
-        context: logContext,
-        message,
-        ...metadata,
-      };
-      console.log(JSON.stringify(logObject));
+      console.log(
+        JSON.stringify({
+          timestamp,
+          level,
+          context: logContext,
+          message,
+          ...metadata,
+        }),
+      );
     } else {
-      const logMessage = `[${timestamp}] [${level.toUpperCase()}] [${logContext}] ${message}`;
-      console.log(logMessage);
-      if (metadata) {
-        console.log(JSON.stringify(metadata, null, 2));
-      }
+      console.log(
+        `[${timestamp}] [${level.toUpperCase()}] [${logContext}] ${message}`,
+      );
+      if (metadata) console.log(JSON.stringify(metadata, null, 2));
     }
   }
 

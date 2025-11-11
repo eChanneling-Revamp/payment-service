@@ -1,4 +1,4 @@
-import { Injectable, HttpStatus } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 
@@ -25,77 +25,73 @@ export class HealthCheckService {
     this.startTime = Date.now();
   }
 
-  async check(): Promise<HealthStatus> {
-    const dbHealthEnabled = this.configService.get<boolean>(
-      'healthCheck.databaseEnabled',
-    );
+  private getTimestamp(): string {
+    return new Date().toISOString();
+  }
 
+  private getUptime(): number {
+    return Math.floor((Date.now() - this.startTime) / 1000);
+  }
+
+  async check(): Promise<HealthStatus> {
     const health: HealthStatus = {
       status: 'ok',
-      timestamp: new Date().toISOString(),
-      uptime: Math.floor((Date.now() - this.startTime) / 1000),
+      timestamp: this.getTimestamp(),
+      uptime: this.getUptime(),
       service: 'payment-service',
       version: '1.0.0',
     };
 
-    if (dbHealthEnabled) {
-      const dbHealth = await this.checkDatabaseConnection();
-      health.database = dbHealth;
-
-      if (dbHealth.status === 'disconnected') {
-        health.status = 'error';
-      }
+    if (this.configService.get<boolean>('healthCheck.databaseEnabled')) {
+      health.database = await this.checkDatabaseConnection();
+      if (health.database.status === 'disconnected') health.status = 'error';
     }
 
     return health;
   }
 
   async checkDatabase() {
-    const dbHealth = await this.checkDatabaseConnection();
-    
+    const database = await this.checkDatabaseConnection();
     return {
-      status: dbHealth.status === 'connected' ? 'ok' : 'error',
-      timestamp: new Date().toISOString(),
-      database: dbHealth,
+      status: database.status === 'connected' ? 'ok' : 'error',
+      timestamp: this.getTimestamp(),
+      database,
     };
   }
 
   async checkReadiness() {
-    const dbHealth = await this.checkDatabaseConnection();
-    
-    const isReady = dbHealth.status === 'connected';
-    
+    const database = await this.checkDatabaseConnection();
+    const isConnected = database.status === 'connected';
+
     return {
-      status: isReady ? 'ready' : 'not_ready',
-      timestamp: new Date().toISOString(),
-      checks: {
-        database: dbHealth.status === 'connected',
-      },
+      status: isConnected ? 'ready' : 'not_ready',
+      timestamp: this.getTimestamp(),
+      checks: { database: isConnected },
     };
   }
 
-  async checkLiveness() {
+  checkLiveness() {
     return {
       status: 'alive',
-      timestamp: new Date().toISOString(),
-      uptime: Math.floor((Date.now() - this.startTime) / 1000),
+      timestamp: this.getTimestamp(),
+      uptime: this.getUptime(),
     };
   }
 
   private async checkDatabaseConnection() {
     const startTime = Date.now();
-    
+
     try {
       // Execute a simple query to check connection
       await this.prisma.$queryRaw`SELECT 1`;
-      
+
       const responseTime = Date.now() - startTime;
-      
+
       return {
         status: 'connected' as const,
         responseTime,
       };
-    } catch (error) {
+    } catch {
       return {
         status: 'disconnected' as const,
         responseTime: Date.now() - startTime,
