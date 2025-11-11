@@ -2,13 +2,16 @@ export default () => ({
   node_env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3000', 10),
   apiPrefix: process.env.API_PREFIX || 'api/v1',
-  
+
   database: {
     url: process.env.DATABASE_URL,
     pool: {
       min: parseInt(process.env.DB_POOL_MIN || '2', 10),
       max: parseInt(process.env.DB_POOL_MAX || '10', 10),
-      connectionTimeout: parseInt(process.env.DB_CONNECTION_TIMEOUT || '20000', 10),
+      connectionTimeout: parseInt(
+        process.env.DB_CONNECTION_TIMEOUT || '20000',
+        10,
+      ),
       idleTimeout: parseInt(process.env.DB_IDLE_TIMEOUT || '30000', 10),
     },
   },
@@ -17,11 +20,14 @@ export default () => ({
     merchantId: process.env.PAYHERE_MERCHANT_ID,
     merchantSecret: process.env.PAYHERE_MERCHANT_SECRET,
     mode: process.env.PAYHERE_MODE || 'sandbox',
-    apiUrl: process.env.PAYHERE_API_URL || 'https://sandbox.payhere.lk/pay/checkout',
+    apiUrl:
+      process.env.PAYHERE_API_URL || 'https://sandbox.payhere.lk/pay/checkout',
   },
 
   security: {
-    corsOrigin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
+    corsOrigin: process.env.CORS_ORIGIN?.split(',') || [
+      'http://localhost:3000',
+    ],
   },
 
   rateLimit: {
