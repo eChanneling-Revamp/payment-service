@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL")
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  bookingId      String
+  userId         String
+  amount         Decimal       @db.Decimal(10,2)
+  currency       String        @default("LKR")
+  feeAmount      Decimal?      @db.Decimal(10,2)
+  netAmount      Decimal?      @db.Decimal(10,2)
+  psp            String
+  pspPaymentId   String?
+  pspReference   String?
+  paymentMethod  String
+  status         String        @default("CREATED")
+  idempotencyKey String?
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  expiresAt      DateTime?
+  events         PaymentEvent[]
+  refunds        Refund[]
+
+  @@unique([bookingId])
+  @@unique([pspPaymentId])
+  @@unique([idempotencyKey])
+  @@index([bookingId])
+  @@index([userId])
+  @@index([pspPaymentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model PaymentEvent {
+  id           String   @id @default(uuid())
+  paymentId    String?
+  eventType    String
+  eventSource  String
+  payload      Json
+  statusBefore String?
+  statusAfter  String?
+  createdAt    DateTime @default(now())
+
+  payment      Payment?  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+model Refund {
+  id           String   @id @default(uuid())
+  paymentId    String
+  amount       Decimal  @db.Decimal(10,2)
+  currency     String   @default("LKR")
+  pspRefundId  String?  @unique
+  reason       String?
+  status       String   @default("PENDING")
+  initiatedBy  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  payment      Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([status])
+}
+
+model IdempotencyKey {
+  key            String   @id
+  requestHash    String   @unique
+  responseStatus Int?
+  responseBody   Json?
+  expiresAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model WebhookAuditLog {
+  id          String   @id @default(uuid())
+  eventSource String
+  payload     Json
+  reason      String
+  createdAt   DateTime @default(now())
+
+  @@index([eventSource])
+  @@index([createdAt])
+}
