@@ -18,7 +18,6 @@ export class WebhooksService {
     private readonly eventRepo: EventRepository,
   ) {}
 
-
   async handlePayHereWebhook(rawBody: string, headers: Record<string, any>) {
     const merchantId = process.env.PAYHERE_MERCHANT_ID ?? '';
     const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET ?? '';
@@ -40,12 +39,17 @@ export class WebhooksService {
     const existingEvent = await this.eventRepo.existsWebhookEvent(pspPaymentId);
 
     if (existingEvent) {
-      log.log(`Duplicate webhook received for pspPaymentId=${pspPaymentId}, ignoring`);
+      log.log(
+        `Duplicate webhook received for pspPaymentId=${pspPaymentId}, ignoring`,
+      );
       return { ok: true, duplicate: true };
     }
 
     // Find corresponding payment by psp_payment_id or bookingId
-    const payment = await this.paymentRepo.findByPspOrBooking(pspPaymentId, parsed.orderId);
+    const payment = await this.paymentRepo.findByPspOrBooking(
+      pspPaymentId,
+      parsed.orderId,
+    );
 
     // If payment not found, create an audit record and return 202
     if (!payment) {
@@ -77,7 +81,13 @@ export class WebhooksService {
         tx as any,
       );
 
-      await this.eventRepo.createWebhookEvent(payment.id, { parsed }, payment.status, status, tx as any);
+      await this.eventRepo.createWebhookEvent(
+        payment.id,
+        { parsed },
+        payment.status,
+        status,
+        tx as any,
+      );
     });
 
     // TODO: emit message to message broker (RabbitMQ) e.g., payment.succeeded / payment.failed
