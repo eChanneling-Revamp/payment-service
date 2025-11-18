@@ -37,7 +37,10 @@ export class EventRepository {
     });
   }
 
-  async recordEvent(data: Prisma.PaymentEventCreateInput, tx?: Prisma.TransactionClient) {
+  async recordEvent(
+    data: Prisma.PaymentEventCreateInput,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = (tx as Prisma.TransactionClient) || this.prisma;
     return db.paymentEvent.create({ data });
   }

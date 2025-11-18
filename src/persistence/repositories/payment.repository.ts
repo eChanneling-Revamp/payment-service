@@ -9,7 +9,10 @@ import { Prisma, Payment } from '@prisma/client';
 export class PaymentRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: Prisma.PaymentCreateInput, tx?: Prisma.TransactionClient): Promise<Payment> {
+  async create(
+    data: Prisma.PaymentCreateInput,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Payment> {
     const db = (tx as Prisma.TransactionClient) || this.prisma;
     return db.payment.create({ data });
   }
@@ -18,7 +21,10 @@ export class PaymentRepository {
     return this.prisma.payment.findUnique({ where: { id } });
   }
 
-  async findByPspOrBooking(pspPaymentId?: string, bookingId?: string): Promise<Payment | null> {
+  async findByPspOrBooking(
+    pspPaymentId?: string,
+    bookingId?: string,
+  ): Promise<Payment | null> {
     return this.prisma.payment.findFirst({
       where: {
         OR: [
