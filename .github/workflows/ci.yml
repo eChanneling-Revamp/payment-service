@@ -6,6 +6,7 @@ on:
             - feature/*
             - bugfix/*
             - ci/*
+    workflow_dispatch:        
 
 
 jobs: 
