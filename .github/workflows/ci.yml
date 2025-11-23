@@ -14,7 +14,7 @@ jobs:
         runs-on: ubuntu-latest
         
         env: 
-            DATABASE_URL: ${{secrets.NEON_CIDATABASE_URL}}
+            DATABASE_URL: ${{secrets.DATABASE_URL}}
 
         steps:
             - name: Checkout repository
