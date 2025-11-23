@@ -131,7 +131,9 @@ export function parsePayHerePayload(rawBody: string): PayHereParsed {
     pspPaymentId: parsed['payment_id'],
     payhere_amount: parsed['payhere_amount'],
     payhere_currency: parsed['payhere_currency'],
-    statusCode: parsed['status_code'] ? Number(parsed['status_code']) : undefined,
+    statusCode: parsed['status_code']
+      ? Number(parsed['status_code'])
+      : undefined,
     md5sig: parsed['md5sig'],
   };
   return result;
