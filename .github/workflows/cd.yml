@@ -126,7 +126,7 @@ jobs:
         run: |
           echo "✅ Docker image pushed to ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
           echo "Tags: ${{ steps.meta.outputs.tags }}"
-# Job 3: Deploy to Dev Server
+
   # Job 3: Deploy to Dev Server (uses podman on the remote server)
   deploy-to-dev:
     name: Deploy to Dev Server
@@ -155,7 +155,7 @@ jobs:
           set -euo pipefail
 
           # image to deploy (uses latest tag)
-          IMAGE="ghcr.io/${{ github.repository }}:latest"
+          IMAGE="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]'):latest"
           CONTAINER="payment-service"
 
           echo "Pulling image: $IMAGE"
