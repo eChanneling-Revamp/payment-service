@@ -25,9 +25,13 @@ export default () => ({
   },
 
   security: {
-    corsOrigin: process.env.CORS_ORIGIN?.split(',') || [
-      'http://localhost:3000',
-    ],
+    corsOrigin: (() => {
+      const corsVar = process.env.CORS_ORIGIN || process.env.ALLOW_ORIGINS;
+      if (corsVar === '*' || corsVar === 'true' || !corsVar) {
+        return true;
+      }
+      return corsVar.split(',');
+    })(),
   },
 
   rateLimit: {
