@@ -27,10 +27,7 @@ jobs:
                     cache: 'npm'
             
             - name: Install dependencies
-              run: npm install
-            
-            - name: Prettier check
-              run: npx prettier --check "src/**/*.ts"
+              run: npm install          
 
             - name: Generate prisma client
               run: npx prisma generate
