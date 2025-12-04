@@ -175,14 +175,17 @@ jobs:
           podman pull "$IMAGE"
 
           echo "Stopping and removing existing container (if any)"
-          if podman ps -a --filter "name=$CONTAINER" --format "{{.Names}}" | grep -q "^$CONTAINER$"; then
-            podman stop "$CONTAINER" || true
-            podman rm "$CONTAINER" || true
-          fi
+          # Force remove the container if it exists (handles stop and rm)
+          podman rm -f "$CONTAINER" || true
+
+          # Wait for port cleanup to avoid 'Address already in use' errors
+          echo "Waiting 10s for port to be released..."
+          sleep 10
 
           echo "Starting new container"
           podman run -d \
             --name "$CONTAINER" \
+            --replace \
             --restart=always \
             -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
             -e PAYHERE_MERCHANT_ID='${{ secrets.PAYHERE_MERCHANT_ID }}' \
