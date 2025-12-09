@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import * as crypto from 'crypto';
 import { Prisma } from '@prisma/client';
+import { generatePayHereInitiationHash } from '../psp-adapters/payhere.adapter';
 
 @Injectable()
 export class PaymentsService {
@@ -81,7 +82,53 @@ export class PaymentsService {
       });
 
       const { id, bookingId, status, amount, currency, createdAt } = result;
-      return { id, bookingId, status, amount, currency, createdAt };
+
+      // Generate PayHere form data
+      // For demo purposes, we get env vars directly. Ideally inject ConfigService.
+      const merchantId = process.env.PAYHERE_MERCHANT_ID || '';
+      const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || '';
+      const baseUrl = 'http://localhost:3000'; // Or from config
+
+      // Amount must be formatted to 2 decimal places
+      const amountStr = Number(amount).toFixed(2);
+
+      const hash = generatePayHereInitiationHash(
+        merchantId,
+        bookingId, // order_id
+        amountStr,
+        currency,
+        merchantSecret,
+      );
+
+      const payhereForm = {
+        merchant_id: merchantId,
+        return_url: `http://localhost:5173/success`, // Frontend success URL
+        cancel_url: `http://localhost:5173/`, // Frontend cancel URL
+        notify_url: `${baseUrl}/api/v1/webhooks/payhere`,
+        order_id: bookingId,
+        items: `Booking ${bookingId}`,
+        currency: currency,
+        amount: amountStr,
+        first_name: 'John', // Mock data
+        last_name: 'Doe', // Mock data
+        email: 'john@example.com',
+        phone: '0771234567',
+        address: 'No.1, Galle Road',
+        city: 'Colombo',
+        country: 'Sri Lanka',
+        hash: hash,
+        sandbox: '1', // Enable sandbox mode
+      };
+
+      return {
+        id,
+        bookingId,
+        status,
+        amount,
+        currency,
+        createdAt,
+        payhereForm,
+      };
     } catch (error: any) {
       this.handlePrismaError(error);
     }

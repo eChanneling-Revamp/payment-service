@@ -91,7 +91,7 @@ export function verifyPayHereNotification(
   const parsed =
     typeof payloadOrRaw === 'string'
       ? parseFormUrlEncoded(payloadOrRaw)
-      : (payloadOrRaw as Record<string, any>);
+      : payloadOrRaw;
 
   const {
     merchant_id,
@@ -137,4 +137,66 @@ export function parsePayHerePayload(rawBody: string): PayHereParsed {
     md5sig: parsed['md5sig'],
   };
   return result;
+}
+
+/**
+ * Verify the incoming notification using HMAC-SHA1 signature.
+ * Expected by the new PayHere webhook implementation.
+ * API: signature = HMAC_SHA1(secret, rawBody)
+ */
+export function verifyPayHereHmac(
+  rawBody: string,
+  signature: string,
+  merchantSecret: string,
+): boolean {
+  if (!signature || !merchantSecret) return false;
+
+  const computed = crypto
+    .createHmac('sha1', merchantSecret)
+    .update(rawBody)
+    .digest('hex');
+
+  // Use constant-time comparison to prevent timing attacks
+  return crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(signature));
+}
+
+/**
+ * Generate hash for payment initiation.
+ * Formula: toupper(md5(merchant_id + order_id + amount + currency + toupper(md5(merchant_secret))))
+ * Note: amount should be formatted to 2 decimal places.
+ */
+export function generatePayHereInitiationHash(
+  merchantId: string,
+  orderId: string,
+  amount: string,
+  currency: string,
+  merchantSecret: string,
+): string {
+  console.log('--- PayHere Hash Debug ---');
+  console.log('Merchant ID:', merchantId);
+  console.log('Order ID:', orderId);
+  console.log('Amount:', amount);
+  console.log('Currency:', currency);
+
+  const secretHash = crypto
+    .createHash('md5')
+    .update(merchantSecret)
+    .digest('hex')
+    .toUpperCase();
+
+  console.log('Secret Hash (uppercased MD5):', secretHash);
+
+  const str = merchantId + orderId + amount + currency + secretHash;
+
+  console.log('Pre-Hash String:', str);
+
+  const finalHash = crypto
+    .createHash('md5')
+    .update(str)
+    .digest('hex')
+    .toUpperCase();
+  console.log('Final Hash:', finalHash);
+  console.log('--------------------------');
+
+  return finalHash;
 }
