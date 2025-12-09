@@ -26,11 +26,12 @@ export default () => ({
 
   security: {
     corsOrigin: (() => {
-      const corsVar = process.env.CORS_ORIGIN || process.env.ALLOW_ORIGINS;
-      if (corsVar === '*' || corsVar === 'true' || !corsVar) {
-        return true;
-      }
-      return corsVar.split(',');
+      // Allow localhost:5173 for development
+      return [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:4002',
+      ];
     })(),
   },
 

@@ -6,6 +6,7 @@ import {
   verifyPayHereNotification,
   parsePayHerePayload,
   mapPayHereStatus,
+  verifyPayHereHmac,
 } from '../psp-adapters/payhere.adapter';
 
 const log = new Logger('WebhooksService');
@@ -22,8 +23,18 @@ export class WebhooksService {
     const merchantId = process.env.PAYHERE_MERCHANT_ID ?? '';
     const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET ?? '';
 
-    if (!verifyPayHereNotification(rawBody, merchantSecret, merchantId)) {
-      log.warn('Invalid PayHere signature');
+    //  'x-signature' or 'X-Signature' in Node headers
+    const signature = headers['x-signature'] || headers['X-Signature'];
+
+    // If no signature found, we might want to fallback or fail.
+    // The requirement is strict on HMAC verification for new webhooks.
+    if (!signature) {
+      log.warn('Missing PayHere X-Signature header');
+      throw new HttpException('Missing signature', HttpStatus.UNAUTHORIZED);
+    }
+
+    if (!verifyPayHereHmac(rawBody, signature, merchantSecret)) {
+      log.warn('Invalid PayHere HMAC signature');
       throw new HttpException('Invalid signature', HttpStatus.UNAUTHORIZED);
     }
 
