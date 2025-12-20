@@ -194,6 +194,9 @@ jobs:
             -e PAYHERE_MERCHANT_SECRET='${{ secrets.PAYHERE_MERCHANT_SECRET }}' \
             -e NODE_ENV='${{ vars.NODE_ENV }}' \
             -e PORT='${{ vars.PORT }}' \
+            -e PAYHERE_MODE='${{ vars.PAYHERE_MODE }}' \
+            -e BACKEND_BASE_URL='${{ secrets.BACKEND_BASE_URL }}' \
+            -e FRONTEND_BASE_URL='${{ secrets.FRONTEND_BASE_URL }}' \
             -p ${{ vars.PORT }}:${{ vars.PORT }} \
             "$IMAGE"
 
