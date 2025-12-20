@@ -46,6 +46,8 @@ jobs:
             -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
             -e PAYHERE_MERCHANT_ID="${{ secrets.PAYHERE_MERCHANT_ID }}" \
             -e PAYHERE_MERCHANT_SECRET="${{ secrets.PAYHERE_MERCHANT_SECRET }}" \
+            -e BASE_URL="${{ secrets.BACKEND_BASE_URL }}" \
+            -e FRONTEND_BASE_URL="${{ secrets.FRONTEND_BASE_URL }}" \
             -e NODE_ENV="${{ vars.NODE_ENV }}" \
             -e PORT="${{ vars.PORT }}" \
             -p ${{ vars.PORT }}:${{ vars.PORT }} \

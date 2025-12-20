@@ -15,6 +15,8 @@ jobs:
         
         env: 
             DATABASE_URL: ${{secrets.DATABASE_URL}}
+            BASE_URL: ${{secrets.BACKEND_BASE_URL}}
+            FRONTEND_BASE_URL: ${{secrets.FRONTEND_BASE_URL}}
 
         steps:
             - name: Checkout repository

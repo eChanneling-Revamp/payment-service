@@ -87,7 +87,8 @@ export class PaymentsService {
       // For demo purposes, we get env vars directly. Ideally inject ConfigService.
       const merchantId = process.env.PAYHERE_MERCHANT_ID || '';
       const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET || '';
-      const baseUrl = 'http://localhost:3000'; // Or from config
+      const backendBaseUrl = process.env.BACKEND_BASE_URL || ''; // Backend base URL
+      const frontendBaseUrl = process.env.FRONTEND_BASE_URL || ''; // Frontend base URL
 
       // Amount must be formatted to 2 decimal places
       const amountStr = Number(amount).toFixed(2);
@@ -102,9 +103,9 @@ export class PaymentsService {
 
       const payhereForm = {
         merchant_id: merchantId,
-        return_url: `http://localhost:5173/success`, // Frontend success URL
-        cancel_url: `http://localhost:5173/`, // Frontend cancel URL
-        notify_url: `${baseUrl}/api/v1/webhooks/payhere`,
+        return_url: `${frontendBaseUrl}/success`, // Frontend success URL
+        cancel_url: `${frontendBaseUrl}/cancel`, // Frontend cancel URL
+        notify_url: `${backendBaseUrl}/api/v1/webhooks/payhere`, // Backend notify URL
         order_id: bookingId,
         items: `Booking ${bookingId}`,
         currency: currency,
