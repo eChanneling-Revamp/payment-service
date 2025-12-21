@@ -31,8 +31,18 @@ export default () => ({
       if (envOrigins) {
         return envOrigins.split(',').map(origin => origin.trim());
       }
-      console.error('CORS_ORIGINS environment variable is not set.');
-      return [];
+      
+      // Default CORS origins for development and common frontend domains
+      const defaultOrigins = [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:4200', 
+        'https://payhere-react-demo.vercel.app',
+        'https://*.vercel.app'
+      ];
+      
+      console.warn('CORS_ORIGINS environment variable is not set. Using default origins:', defaultOrigins);
+      return defaultOrigins;
     })(),
   },
 

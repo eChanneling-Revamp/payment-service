@@ -13,9 +13,27 @@ async function bootstrap() {
   const corsOrigin = configService.get<string[] | boolean>(
     'security.corsOrigin',
   );
+  
+  // Enhanced CORS configuration
   app.enableCors({
-    origin: corsOrigin,
+    origin: corsOrigin && corsOrigin.length > 0 ? corsOrigin : [
+      'http://localhost:3000',
+      'http://localhost:5173', 
+      'http://localhost:4200',
+      'https://payhere-react-demo.vercel.app',
+      'https://*.vercel.app'
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'idempotency-key',
+      'x-payhere-signature',
+      'x-signature'
+    ],
     credentials: true,
+    optionsSuccessStatus: 200, // For legacy browser support
+    preflightContinue: false,
   });
 
   // Global validation pipe

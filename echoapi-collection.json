@@ -1,0 +1,339 @@
+{
+  "info": {
+    "name": "Payment Microservice API",
+    "description": "E-Channeling Payment Service with PayHere Integration"
+  },
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:3000/api/v1",
+      "description": "Payment service base URL"
+    },
+    {
+      "key": "BOOKING_ID",
+      "value": "BOOKING-{{$timestamp}}",
+      "description": "Dynamic booking ID for testing"
+    },
+    {
+      "key": "IDEMPOTENCY_KEY", 
+      "value": "idempotency-{{$timestamp}}",
+      "description": "Idempotency key to prevent duplicate requests"
+    },
+    {
+      "key": "PAYMENT_ID",
+      "value": "",
+      "description": "Payment ID returned from create payment API"
+    },
+    {
+      "key": "MERCHANT_ID",
+      "value": "1234567",
+      "description": "PayHere merchant ID for testing"
+    },
+    {
+      "key": "TEST_USER_ID",
+      "value": "user-{{$randomInt}}",
+      "description": "Random test user ID"
+    }
+  ],
+  "environments": [
+    {
+      "name": "Development",
+      "values": [
+        {
+          "key": "BASE_URL",
+          "value": "http://localhost:3000/api/v1"
+        },
+        {
+          "key": "ENV",
+          "value": "dev"
+        }
+      ]
+    },
+    {
+      "name": "Production",
+      "values": [
+        {
+          "key": "BASE_URL", 
+          "value": "https://payment-api.yourdomain.com/api/v1"
+        },
+        {
+          "key": "ENV",
+          "value": "prod"
+        }
+      ]
+    },
+    {
+      "name": "Staging",
+      "values": [
+        {
+          "key": "BASE_URL",
+          "value": "https://staging-payment-api.yourdomain.com/api/v1"
+        },
+        {
+          "key": "ENV",
+          "value": "staging"
+        }
+      ]
+    }
+  ],
+  "item": [
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Payment - QR",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"BOOKING-QR-{{$randomInt}}\",\n  \"userId\": \"user-{{$randomInt}}\",\n  \"amount\": 3000.00,\n  \"currency\": \"LKR\",\n  \"paymentMethod\": \"qr\",\n  \"psp\": \"payhere\",\n  \"metadata\": {\n    \"doctorName\": \"Dr. Perera\",\n    \"appointmentDate\": \"2025-11-25\",\n    \"sessionNumber\": 15\n  }\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/payments",
+              "host": ["{{BASE_URL}}"],
+              "path": ["payments"]
+            }
+          }
+        },
+        {
+          "name": "Create Payment - Card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "idempotency-key",
+                "value": "{{IDEMPOTENCY_KEY}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{BOOKING_ID}}\",\n  \"userId\": \"user-{{$randomInt}}\",\n  \"amount\": 1500.00,\n  \"currency\": \"LKR\",\n  \"paymentMethod\": \"card\",\n  \"psp\": \"payhere\",\n  \"metadata\": {\n    \"doctorName\": \"Dr. Silva\",\n    \"appointmentDate\": \"2025-11-15\",\n    \"sessionNumber\": 12,\n    \"patientName\": \"John Doe\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/payments",
+              "host": ["{{BASE_URL}}"],
+              "path": ["payments"]
+            }
+          }
+        },
+        {
+          "name": "Create Payment - Wallet",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "idempotency-key",
+                "value": "{{IDEMPOTENCY_KEY}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{BOOKING_ID}}\",\n  \"userId\": \"user-{{$randomInt}}\",\n  \"amount\": 2500.00,\n  \"currency\": \"LKR\",\n  \"paymentMethod\": \"wallet\",\n  \"psp\": \"payhere\",\n  \"metadata\": {\n    \"doctorName\": \"Dr. Fernando\",\n    \"appointmentDate\": \"2025-11-20\",\n    \"sessionNumber\": 8\n  }\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/payments",
+              "host": ["{{BASE_URL}}"],
+              "path": ["payments"]
+            }
+          }
+        },
+        {
+          "name": "Get Payment by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/payments/{{PAYMENT_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["payments", "{{PAYMENT_ID}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "PayHere Webhook Test - Success",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchant_id\": \"1234567\",\n  \"order_id\": \"{{BOOKING_ID}}\",\n  \"payment_id\": \"{{$randomInt}}\",\n  \"payhere_amount\": \"1500.00\",\n  \"payhere_currency\": \"LKR\",\n  \"status_code\": \"2\",\n  \"md5sig\": \"test_signature\",\n  \"method\": \"VISA\",\n  \"card_holder_name\": \"John Doe\",\n  \"card_no\": \"************1234\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/webhooks/payhere/test",
+              "host": ["{{BASE_URL}}"],
+              "path": ["webhooks", "payhere", "test"]
+            }
+          }
+        },
+        {
+          "name": "PayHere Webhook Test - Failed",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchant_id\": \"1234567\",\n  \"order_id\": \"{{BOOKING_ID}}\",\n  \"payment_id\": \"{{$randomInt}}\",\n  \"payhere_amount\": \"1500.00\",\n  \"payhere_currency\": \"LKR\",\n  \"status_code\": \"-1\",\n  \"md5sig\": \"test_signature\",\n  \"status_message\": \"Payment declined by bank\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/webhooks/payhere/test",
+              "host": ["{{BASE_URL}}"],
+              "path": ["webhooks", "payhere", "test"]
+            }
+          }
+        },
+        {
+          "name": "PayHere Webhook Production (with signature)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "x-payhere-signature",
+                "value": "YOUR_HMAC_SIGNATURE_HERE"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "merchant_id",
+                  "value": "1234567"
+                },
+                {
+                  "key": "order_id",
+                  "value": "{{BOOKING_ID}}"
+                },
+                {
+                  "key": "payment_id",
+                  "value": "320012345"
+                },
+                {
+                  "key": "payhere_amount",
+                  "value": "1500.00"
+                },
+                {
+                  "key": "payhere_currency",
+                  "value": "LKR"
+                },
+                {
+                  "key": "status_code",
+                  "value": "2"
+                },
+                {
+                  "key": "md5sig",
+                  "value": "generated_md5_signature"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/webhooks/payhere",
+              "host": ["{{BASE_URL}}"],
+              "path": ["webhooks", "payhere"]
+            }
+          }
+        },
+        {
+          "name": "PayHere Webhook Test - Cancelled",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchant_id\": \"1234567\",\n  \"order_id\": \"{{BOOKING_ID}}\",\n  \"payment_id\": \"{{$randomInt}}\",\n  \"payhere_amount\": \"1500.00\",\n  \"payhere_currency\": \"LKR\",\n  \"status_code\": \"-2\",\n  \"md5sig\": \"test_signature\",\n  \"status_message\": \"Payment cancelled by user\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/webhooks/payhere/test",
+              "host": ["{{BASE_URL}}"],
+              "path": ["webhooks", "payhere", "test"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Checks",
+      "item": [
+        {
+          "name": "Overall Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/health",
+              "host": ["{{BASE_URL}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Liveness Probe",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/health/live",
+              "host": ["{{BASE_URL}}"],
+              "path": ["health", "live"]
+            }
+          }
+        },
+        {
+          "name": "Readiness Probe",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/health/ready",
+              "host": ["{{BASE_URL}}"],
+              "path": ["health", "ready"]
+            }
+          }
+        },
+        {
+          "name": "Database Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/health/database",
+              "host": ["{{BASE_URL}}"],
+              "path": ["health", "database"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
