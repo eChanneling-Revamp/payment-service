@@ -27,12 +27,12 @@ export default () => ({
 
   security: {
     corsOrigin: (() => {
-      // Allow localhost:5173 for development
-      return [
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'http://localhost:4002',
-      ];
+      const envOrigins = process.env.CORS_ORIGINS;
+      if (envOrigins) {
+        return envOrigins.split(',').map(origin => origin.trim());
+      }
+      console.error('CORS_ORIGINS environment variable is not set.');
+      return [];
     })(),
   },
 
