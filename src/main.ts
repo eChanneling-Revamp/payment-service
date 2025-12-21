@@ -15,14 +15,16 @@ async function bootstrap() {
   );
   
   // Enhanced CORS configuration
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5173', 
+    'http://localhost:4200',
+    'https://payhere-react-demo.vercel.app',
+    'https://*.vercel.app'
+  ];
+  
   app.enableCors({
-    origin: corsOrigin && corsOrigin.length > 0 ? corsOrigin : [
-      'http://localhost:3000',
-      'http://localhost:5173', 
-      'http://localhost:4200',
-      'https://payhere-react-demo.vercel.app',
-      'https://*.vercel.app'
-    ],
+    origin: Array.isArray(corsOrigin) && corsOrigin.length > 0 ? corsOrigin : allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: [
       'Content-Type',
@@ -52,7 +54,7 @@ async function bootstrap() {
   // Preserve raw body for webhook signature verification
   app.use(
     bodyParser.json({
-      verify: (req: any, _res, buf: Buffer) => {
+      verify: (req: any, _res, buf) => {
         req.rawBody = buf.toString();
       },
     }),
