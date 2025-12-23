@@ -32,41 +32,18 @@ export class WebhooksController {
     description:
       'Receives payment notifications from PayHere payment gateway. Requires valid HMAC signature for security.',
   })
-  @ApiHeader({
-    name: 'x-payhere-signature',
-    required: true,
-    description: 'HMAC-SHA256 signature for webhook verification',
-    schema: { type: 'string' },
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Webhook processed successfully',
-    schema: {
-      example: {
-        ok: true,
-      },
-    },
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid signature - webhook authentication failed',
-  })
   @ApiResponse({
     status: 400,
     description: 'Missing payment ID or invalid webhook payload',
   })
   async payHereWebhook(
-    @Req() req: Request,
-    @Headers() headers: Record<string, any>,
+    @Body() payload: any,
   ) {
-    const rawBody = (req as any).rawBody ?? JSON.stringify(req.body);
-
-    this.logger.log(`Received PayHere webhook. Signature: ${headers['x-signature'] || headers['X-Signature'] || 'MISSING'}`);
-    this.logger.debug(`Webhook Body: ${rawBody}`);
-    this.logger.debug(`Webhook Headers: ${JSON.stringify(headers)}`);
+    this.logger.log(`Received PayHere webhook`);
+    this.logger.debug(`Webhook Body: ${JSON.stringify(payload)}`);
 
     try {
-      return await this.webhooksService.handlePayHereWebhook(rawBody, headers);
+      return await this.webhooksService.handlePayHereWebhook(payload);
     } catch (error) {
       this.logger.error(`Error processing PayHere webhook`, error);
       throw error;
@@ -95,11 +72,6 @@ export class WebhooksController {
     if (process.env.NODE_ENV === 'production') {
       throw new ForbiddenException('Test endpoint disabled in production');
     }
-    return {
-      received: true,
-      message: 'Test webhook - signature bypassed',
-      body,
-      timestamp: new Date().toISOString(),
-    };
+    return this.webhooksService.handleTestWebhook(body);
   }
 }
