@@ -122,8 +122,8 @@ export function verifyPayHereNotification(
 /**
  * Parse raw payhere payload into a standardized object used by the app.
  */
-export function parsePayHerePayload(rawBody: string): PayHereParsed {
-  const parsed = parseFormUrlEncoded(rawBody);
+export function parsePayHerePayload(rawBody: string | Record<string, any>): PayHereParsed {
+  const parsed = typeof rawBody === 'string' ? parseFormUrlEncoded(rawBody) : rawBody;
   const result: PayHereParsed = {
     raw: parsed,
     payment_id: parsed['payment_id'],

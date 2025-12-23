@@ -7,6 +7,7 @@ import {
   parsePayHerePayload,
   mapPayHereStatus,
   verifyPayHereHmac,
+  PayHereParsed,
 } from '../psp-adapters/payhere.adapter';
 
 const log = new Logger('WebhooksService');
@@ -19,32 +20,33 @@ export class WebhooksService {
     private readonly eventRepo: EventRepository,
   ) { }
 
-  async handlePayHereWebhook(rawBody: string, headers: Record<string, any>) {
-    const merchantId = process.env.PAYHERE_MERCHANT_ID ?? '';
+  async handlePayHereWebhook(payload: any) {
     const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET ?? '';
 
-    //  'x-signature' or 'X-Signature' in Node headers
-    const signature = headers['x-signature'] || headers['X-Signature'];
-
-    // If no signature found, we might want to fallback or fail.
-    // The requirement is strict on HMAC verification for new webhooks.
-    // If no signature found, we might want to fallback or fail.
-    // The requirement is strict on HMAC verification for new webhooks.
-    if (!signature) {
-      log.warn('Missing PayHere X-Signature header');
-      throw new HttpException('Missing signature', HttpStatus.UNAUTHORIZED);
-    }
-
-    const isVerified = verifyPayHereHmac(rawBody, signature, merchantSecret);
-    log.debug(`HMAC Verification result: ${isVerified}. Signature provided: ${signature}`);
+    // Verify using MD5 signature present in payload
+    // PayHere sends 'md5sig' in the body
+    const isVerified = verifyPayHereNotification(payload, merchantSecret);
 
     if (!isVerified) {
-      log.warn(`Invalid PayHere HMAC signature. RawBody length: ${rawBody.length}`);
+      log.warn(`Invalid PayHere MD5 signature. Payload: ${JSON.stringify(payload)}`);
       throw new HttpException('Invalid signature', HttpStatus.UNAUTHORIZED);
     }
 
-    const parsed = parsePayHerePayload(rawBody);
-    const status = mapPayHereStatus(parsed.statusCode);
+    // Parse/Normalize payload
+    const parsed = parsePayHerePayload(payload);
+    return this.processPaymentStatus(parsed);
+  }
+
+  async handleTestWebhook(payload: any) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new HttpException('Test endpoint disabled in production', HttpStatus.FORBIDDEN);
+    }
+    const parsed = parsePayHerePayload(payload);
+    return this.processPaymentStatus(parsed);
+  }
+
+  private async processPaymentStatus(parsed: PayHereParsed) {
+    const status = mapPayHereStatus(parsed.statusCode || '');
     const pspPaymentId = parsed.pspPaymentId;
     if (!pspPaymentId) {
       log.warn('PayHere webhook missing payment id', parsed);
