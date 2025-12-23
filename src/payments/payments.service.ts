@@ -1,37 +1,16 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-import * as crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 import { generatePayHereInitiationHash } from '../psp-adapters/payhere.adapter';
 
 @Injectable()
 export class PaymentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
-  private hashRequest(body: any) {
-    return crypto
-      .createHash('sha256')
-      .update(JSON.stringify(body))
-      .digest('hex');
-  }
 
-  async createPayment(dto: CreatePaymentDto, idempotencyKey?: string) {
-    const requestHash = this.hashRequest({ dto });
-
-    if (idempotencyKey) {
-      const existing = await this.prisma.idempotencyKey.findUnique({
-        where: { key: idempotencyKey },
-      });
-      if (existing?.responseBody) return existing.responseBody;
-      if (existing)
-        throw new HttpException(
-          'Idempotency key exists but no cached response',
-          HttpStatus.CONFLICT,
-        );
-    }
-
-    // Create payment + event + idempotency record in a transaction
+  async createPayment(dto: CreatePaymentDto) {
+    // Create payment + event in a transaction
     try {
       const result = await this.prisma.$transaction(async (tx) => {
         const payment = await tx.payment.create({
@@ -45,7 +24,6 @@ export class PaymentsService {
             metadata: dto.metadata || {},
             status: 'CREATED',
             expiresAt: dto.expiresAt && new Date(dto.expiresAt),
-            idempotencyKey,
           },
         });
 
@@ -59,24 +37,6 @@ export class PaymentsService {
             statusAfter: 'CREATED',
           },
         });
-
-        if (idempotencyKey) {
-          await tx.idempotencyKey.create({
-            data: {
-              key: idempotencyKey,
-              requestHash,
-              responseStatus: 201,
-              responseBody: {
-                id: payment.id,
-                bookingId: payment.bookingId,
-                status: payment.status,
-                amount: payment.amount,
-                currency: payment.currency,
-              },
-              expiresAt: dto.expiresAt && new Date(dto.expiresAt),
-            },
-          });
-        }
 
         return payment;
       });
@@ -138,7 +98,7 @@ export class PaymentsService {
   async getPaymentById(paymentId: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
-      include: { events: true, refunds: true },
+      include: { events: true },
     });
 
     if (!payment) {

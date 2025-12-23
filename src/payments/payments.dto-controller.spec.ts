@@ -91,22 +91,11 @@ describe('PaymentsController', () => {
     };
     mockService.createPayment.mockResolvedValue(expected);
 
-    const res = await controller.createPayment(dto, undefined);
+    const res = await controller.createPayment(dto);
     expect(res).toEqual(expected);
-    expect(mockService.createPayment).toHaveBeenCalledWith(dto, undefined);
+    expect(mockService.createPayment).toHaveBeenCalledWith(dto);
   });
 
-  it('should forward idempotency key header', async () => {
-    const dto: CreatePaymentDto = {
-      bookingId: 'B2',
-      userId: 'U2',
-      amount: 500,
-      paymentMethod: 'card',
-    } as any;
-    mockService.createPayment.mockResolvedValue({ id: 'p2' });
-    await controller.createPayment(dto, 'idem-1');
-    expect(mockService.createPayment).toHaveBeenCalledWith(dto, 'idem-1');
-  });
 
   it('should get payment by id', async () => {
     mockService.getPaymentById.mockResolvedValue({ id: 'p3' });

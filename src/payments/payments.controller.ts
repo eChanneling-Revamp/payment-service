@@ -12,7 +12,7 @@ import { CreatePaymentDto } from './dto/create-payment.dto';
 @ApiTags('payments')
 @Controller('payments')
 export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
+  constructor(private readonly paymentsService: PaymentsService) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new payment' })
@@ -31,17 +31,10 @@ export class PaymentsController {
     },
   })
   @ApiResponse({ status: 400, description: 'Invalid request data' })
-  @ApiResponse({ status: 409, description: 'Idempotency key conflict' })
-  @ApiHeader({
-    name: 'idempotency-key',
-    required: false,
-    description: 'Optional idempotency key to prevent duplicate payments',
-  })
   async createPayment(
     @Body() body: CreatePaymentDto,
-    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.paymentsService.createPayment(body, idempotencyKey);
+    return this.paymentsService.createPayment(body);
   }
 
   @Get(':id')
