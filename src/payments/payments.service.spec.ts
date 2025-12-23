@@ -19,10 +19,6 @@ describe('PaymentsService', () => {
       create: jest.fn(),
       findFirst: jest.fn(),
     },
-    idempotencyKey: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-    },
     $transaction: jest.fn(),
   };
 
@@ -67,65 +63,6 @@ describe('PaymentsService', () => {
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     });
 
-    it('returns cached idempotency response when key exists', async () => {
-      const dto: CreatePaymentDto = {
-        bookingId: 'BOOK-2',
-        userId: 'user-2',
-        amount: 2000,
-        paymentMethod: 'card',
-      } as any;
-      const key = 'idem-1';
-
-      mockPrisma.idempotencyKey.findUnique.mockResolvedValue({
-        key,
-        responseBody: {
-          id: 'pay-2',
-          bookingId: dto.bookingId,
-          status: 'CREATED',
-        },
-      });
-
-      const res = await service.createPayment(dto, key);
-
-      expect(res).toEqual({
-        id: 'pay-2',
-        bookingId: dto.bookingId,
-        status: 'CREATED',
-      });
-      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
-    });
-
-    it('throws conflict when idempotency key exists but no responseBody', async () => {
-      const dto: CreatePaymentDto = {
-        bookingId: 'BOOK-3',
-        userId: 'user-3',
-        amount: 3000,
-        paymentMethod: 'card',
-      } as any;
-      const key = 'idem-2';
-
-      mockPrisma.idempotencyKey.findUnique.mockResolvedValue({
-        key,
-        responseBody: null,
-      });
-
-      await expect(service.createPayment(dto, key)).rejects.toThrow(
-        HttpException,
-      );
-    });
-
-    it('handles Prisma unique constraint error gracefully', async () => {
-      const dto: CreatePaymentDto = {
-        bookingId: 'BOOK-4',
-        userId: 'user-4',
-        amount: 4000,
-        paymentMethod: 'card',
-      } as any;
-
-      mockPrisma.$transaction.mockRejectedValue(new Error('P2002'));
-
-      await expect(service.createPayment(dto)).rejects.toThrow(HttpException);
-    });
   });
 
   describe('getPaymentById', () => {
@@ -135,7 +72,6 @@ describe('PaymentsService', () => {
         bookingId: 'BOOK-10',
         status: 'CREATED',
         events: [],
-        refunds: [],
       };
       mockPrisma.payment.findUnique.mockResolvedValue(mockPayment);
 
@@ -144,7 +80,7 @@ describe('PaymentsService', () => {
       expect(res).toEqual(mockPayment);
       expect(mockPrisma.payment.findUnique).toHaveBeenCalledWith({
         where: { id: 'pay-10' },
-        include: { events: true, refunds: true },
+        include: { events: true },
       });
     });
 

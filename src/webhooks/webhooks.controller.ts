@@ -6,6 +6,7 @@ import {
   HttpCode,
   Body,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,7 +21,9 @@ import { WebhooksService } from './webhooks.service';
 @ApiTags('webhooks')
 @Controller('webhooks')
 export class WebhooksController {
-  constructor(private readonly webhooksService: WebhooksService) {}
+  private readonly logger = new Logger(WebhooksController.name);
+
+  constructor(private readonly webhooksService: WebhooksService) { }
 
   @Post('payhere')
   @HttpCode(200)
@@ -57,7 +60,17 @@ export class WebhooksController {
     @Headers() headers: Record<string, any>,
   ) {
     const rawBody = (req as any).rawBody ?? JSON.stringify(req.body);
-    return this.webhooksService.handlePayHereWebhook(rawBody, headers);
+
+    this.logger.log(`Received PayHere webhook. Signature: ${headers['x-signature'] || headers['X-Signature'] || 'MISSING'}`);
+    this.logger.debug(`Webhook Body: ${rawBody}`);
+    this.logger.debug(`Webhook Headers: ${JSON.stringify(headers)}`);
+
+    try {
+      return await this.webhooksService.handlePayHereWebhook(rawBody, headers);
+    } catch (error) {
+      this.logger.error(`Error processing PayHere webhook`, error);
+      throw error;
+    }
   }
 
   @Post('payhere/test')

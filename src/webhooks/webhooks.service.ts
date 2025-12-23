@@ -17,7 +17,7 @@ export class WebhooksService {
     private readonly prisma: PrismaService,
     private readonly paymentRepo: PaymentRepository,
     private readonly eventRepo: EventRepository,
-  ) {}
+  ) { }
 
   async handlePayHereWebhook(rawBody: string, headers: Record<string, any>) {
     const merchantId = process.env.PAYHERE_MERCHANT_ID ?? '';
@@ -28,13 +28,18 @@ export class WebhooksService {
 
     // If no signature found, we might want to fallback or fail.
     // The requirement is strict on HMAC verification for new webhooks.
+    // If no signature found, we might want to fallback or fail.
+    // The requirement is strict on HMAC verification for new webhooks.
     if (!signature) {
       log.warn('Missing PayHere X-Signature header');
       throw new HttpException('Missing signature', HttpStatus.UNAUTHORIZED);
     }
 
-    if (!verifyPayHereHmac(rawBody, signature, merchantSecret)) {
-      log.warn('Invalid PayHere HMAC signature');
+    const isVerified = verifyPayHereHmac(rawBody, signature, merchantSecret);
+    log.debug(`HMAC Verification result: ${isVerified}. Signature provided: ${signature}`);
+
+    if (!isVerified) {
+      log.warn(`Invalid PayHere HMAC signature. RawBody length: ${rawBody.length}`);
       throw new HttpException('Invalid signature', HttpStatus.UNAUTHORIZED);
     }
 
@@ -57,10 +62,17 @@ export class WebhooksService {
     }
 
     // Find corresponding payment by psp_payment_id or bookingId
+    log.debug(`Looking up payment for pspPaymentId: ${pspPaymentId}, orderId: ${parsed.orderId}`);
     const payment = await this.paymentRepo.findByPspOrBooking(
       pspPaymentId,
       parsed.orderId,
     );
+
+    if (payment) {
+      log.debug(`Found payment: ${payment.id} with status: ${payment.status}`);
+    } else {
+      log.warn(`Payment not found for pspPaymentId: ${pspPaymentId}, orderId: ${parsed.orderId}`);
+    }
 
     // If payment not found, create an audit record and return 202
     if (!payment) {
@@ -81,25 +93,32 @@ export class WebhooksService {
     }
 
     // Update payment status and write audit event atomically
-    await this.prisma.$transaction(async (tx) => {
-      await this.paymentRepo.updateStatus(
-        payment.id,
-        status,
-        {
-          pspPaymentId,
-          pspReference: parsed.raw?.merchant_reference || parsed.raw?.reference,
-        },
-        tx as any,
-      );
+    // Update payment status and write audit event atomically
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await this.paymentRepo.updateStatus(
+          payment.id,
+          status,
+          {
+            pspPaymentId,
+            pspReference: parsed.raw?.merchant_reference || parsed.raw?.reference,
+          },
+          tx as any,
+        );
 
-      await this.eventRepo.createWebhookEvent(
-        payment.id,
-        { parsed },
-        payment.status,
-        status,
-        tx as any,
-      );
-    });
+        await this.eventRepo.createWebhookEvent(
+          payment.id,
+          { parsed },
+          payment.status,
+          status,
+          tx as any,
+        );
+      });
+      log.log(`Successfully updated payment ${payment.id} status to ${status}`);
+    } catch (err) {
+      log.error(`Failed to update payment status transaction for ${payment.id}`, err);
+      throw err;
+    }
 
     // TODO: emit message to message broker (RabbitMQ) e.g., payment.succeeded / payment.failed
     log.log(`Processed PayHere webhook for payment ${payment.id} -> ${status}`);
