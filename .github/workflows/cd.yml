@@ -144,6 +144,7 @@ jobs:
     needs: push-image
     permissions:
       contents: read
+      packages: read
 
     steps:
       - name: Set lowercase image name
@@ -172,6 +173,9 @@ jobs:
           # image to deploy (uses latest tag)
           IMAGE="ghcr.io/${{ env.IMAGE_NAME }}:latest"
           CONTAINER="payment-service"
+
+          echo "Logging into ghcr.io..."
+          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
 
           echo "Pulling image: $IMAGE"
           podman pull "$IMAGE"
