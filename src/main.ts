@@ -10,10 +10,32 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
 
   // Enable CORS
-  const corsOrigin = configService.get<string[]>('security.corsOrigin');
+  const corsOrigin = configService.get<string[] | boolean>(
+    'security.corsOrigin',
+  );
+
+  // Enhanced CORS configuration
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:4200',
+    'https://payhere-react-demo.vercel.app',
+    'https://*.vercel.app'
+  ];
+
   app.enableCors({
-    origin: corsOrigin,
+    origin: Array.isArray(corsOrigin) && corsOrigin.length > 0 ? corsOrigin : allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'idempotency-key',
+      'x-payhere-signature',
+      'x-signature'
+    ],
     credentials: true,
+    optionsSuccessStatus: 200, // For legacy browser support
+    preflightContinue: false,
   });
 
   // Global validation pipe
@@ -32,7 +54,15 @@ async function bootstrap() {
   // Preserve raw body for webhook signature verification
   app.use(
     bodyParser.json({
-      verify: (req: any, _res, buf: Buffer) => {
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf.toString();
+      },
+    }),
+  );
+  app.use(
+    bodyParser.urlencoded({
+      extended: true,
+      verify: (req: any, _res, buf) => {
         req.rawBody = buf.toString();
       },
     }),

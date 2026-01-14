@@ -1,0 +1,571 @@
+type: collection.insomnia.rest/5.0
+schema_version: "5.1"
+name: Imported Workspace
+meta:
+  id: wrk_c36c6351e8b548c7808bd52a100911ee
+  created: 1766228280705
+  modified: 1766306074547
+  description: ""
+collection:
+  - name: Payment Microservice API
+    meta:
+      id: fld_8ff51e1b189f4a4cb60d0aa84e350543
+      created: 1766233594497
+      modified: 1766292321726
+      sortKey: -1766233592127
+      description: >-
+        E-Channeling Payment Service with PayHere Integration
+
+
+        Complete API collection for testing all payment service endpoints
+        including:
+
+
+        - Payment creation and retrieval
+            
+        - PayHere webhook handlers
+            
+        - Health check endpoints
+            
+
+        Environment: Use the provided environment file or configure BASE_URL
+        variable
+    children:
+      - name: Payments
+        meta:
+          id: fld_7ba390b3da9947beaa7d8ce17f4d1767
+          created: 1766233594498
+          modified: 1766292321726
+          sortKey: -1766233592126
+          description: Payment creation and retrieval endpoints
+        children:
+          - url: "{{BASE_URL}}/payments"
+            name: Create Payment - QR
+            meta:
+              id: req_5db34172bf4d4e44bb9d0f7ed65bb873
+              created: 1766233594499
+              modified: 1766306074409
+              isPrivate: false
+              description: Create a new payment using QR code
+              sortKey: -1766233592123
+            method: POST
+            body:
+              mimeType: text/plain
+              text: |-
+                {
+                  "bookingId": "BOOKING-QR-{% faker 'randomInt' %}",
+                  "userId": "user-{% faker 'randomInt' %}",
+                  "amount": 3000.00,
+                  "currency": "LKR",
+                  "paymentMethod": "qr",
+                  "psp": "payhere",
+                  "metadata": {
+                    "doctorName": "Dr. Perera",
+                    "appointmentDate": "2025-11-25",
+                    "sessionNumber": 15
+                  }
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{ _.BASE_URL }}/payments"
+            name: Create Payment - Card
+            meta:
+              id: req_d403e2d1830d40aca13d12ab93945c35
+              created: 1766233594499
+              modified: 1766306074471
+              isPrivate: false
+              description: Create a new payment for card payment method
+              sortKey: -1766233592125
+            method: POST
+            body:
+              mimeType: text/plain
+              text: |-
+                {
+                  "bookingId": "{{_['BOOKING_ID']}}",
+                  "userId": "user-{% faker 'randomInt' %}",
+                  "amount": 1500.00,
+                  "currency": "LKR",
+                  "paymentMethod": "card",
+                  "psp": "payhere",
+                  "metadata": {
+                    "doctorName": "Dr. Silva",
+                    "appointmentDate": "2025-11-15",
+                    "sessionNumber": 12,
+                    "patientName": "John Doe"
+                  }
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: idempotency-key
+                value: "{{IDEMPOTENCY_KEY}}"
+                description: Prevents duplicate payments
+            scripts:
+              preRequest: >-
+                // Generate idempotency key
+
+                const idempotencyKey = 'idempotency-' + Date.now();
+
+                insomnia.environment.set('IDEMPOTENCY_KEY', idempotencyKey);
+
+
+                // Generate booking ID
+
+                const bookingId = 'BOOKING-' + Math.floor(Math.random() *
+                10000);
+
+                insomnia.environment.set('BOOKING_ID', bookingId);
+              afterResponse: |-
+                insomnia.test('Status code is 201', function () {
+                    insomnia.response.to.have.status(201);
+                });
+
+                insomnia.test('Response has payment ID', function () {
+                    const jsonData = insomnia.response.json();
+                    insomnia.expect(jsonData).to.have.property('id');
+                    insomnia.environment.set('PAYMENT_ID', jsonData.id);
+                });
+
+                insomnia.test('Payment status is CREATED', function () {
+                    const jsonData = insomnia.response.json();
+                    insomnia.expect(jsonData.status).to.equal('CREATED');
+                });
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{BASE_URL}}/payments"
+            name: Create Payment - Wallet
+            meta:
+              id: req_f1fbcd2d4687457cad9c2a8cc475ab04
+              created: 1766233594499
+              modified: 1766306074532
+              isPrivate: false
+              description: Create a new payment using digital wallet
+              sortKey: -1766233592124
+            method: POST
+            body:
+              mimeType: text/plain
+              text: |-
+                {
+                  "bookingId": "{{_['BOOKING_ID']}}",
+                  "userId": "user-{% faker 'randomInt' %}",
+                  "amount": 2500.00,
+                  "currency": "LKR",
+                  "paymentMethod": "wallet",
+                  "psp": "payhere",
+                  "metadata": {
+                    "doctorName": "Dr. Fernando",
+                    "appointmentDate": "2025-11-20",
+                    "sessionNumber": 8
+                  }
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+              - name: idempotency-key
+                value: "{{IDEMPOTENCY_KEY}}"
+            scripts:
+              preRequest: >-
+                const idempotencyKey = 'idempotency-' + Date.now();
+
+                insomnia.environment.set('IDEMPOTENCY_KEY', idempotencyKey);
+
+
+                const bookingId = 'BOOKING-' + Math.floor(Math.random() *
+                10000);
+
+                insomnia.environment.set('BOOKING_ID', bookingId);
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{BASE_URL}}/payments/{{PAYMENT_ID}}"
+            name: Get Payment by ID
+            meta:
+              id: req_180cc6100a874485a7e690525c05d593
+              created: 1766233594500
+              modified: 1766306074372
+              isPrivate: false
+              description: Retrieve payment details by payment ID (UUID). Use PAYMENT_ID from
+                environment or replace with actual UUID.
+              sortKey: -1766233592122
+            method: GET
+            scripts:
+              afterResponse: |-
+                insomnia.test('Status code is 200', function () {
+                    insomnia.response.to.have.status(200);
+                });
+
+                insomnia.test('Response contains payment details', function () {
+                    const jsonData = insomnia.response.json();
+                    insomnia.expect(jsonData).to.have.property('id');
+                    insomnia.expect(jsonData).to.have.property('bookingId');
+                    insomnia.expect(jsonData).to.have.property('status');
+                    insomnia.expect(jsonData).to.have.property('amount');
+                });
+
+                insomnia.test('Payment has events array', function () {
+                    const jsonData = insomnia.response.json();
+                    insomnia.expect(jsonData).to.have.property('events');
+                    insomnia.expect(jsonData.events).to.be.an('array');
+                });
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+      - name: Webhooks
+        meta:
+          id: fld_3c0dcfc642384493885c8e4476f5eaa9
+          created: 1766233594500
+          modified: 1766306074345
+          sortKey: -1766233592121
+          description: PayHere webhook endpoints for payment notifications
+        children:
+          - url: "{{BASE_URL}}/webhooks/payhere/test"
+            name: PayHere Webhook Test - Failed
+            meta:
+              id: req_a190adee90214dc4809b615345c616b1
+              created: 1766233594500
+              modified: 1766306074423
+              isPrivate: false
+              description: Test webhook for failed payment. Status code -1 = Failed
+              sortKey: -1766233592119
+            method: POST
+            body:
+              mimeType: text/plain
+              text: |-
+                {
+                  "merchant_id": "1234567",
+                  "order_id": "{{_['BOOKING_ID']}}",
+                  "payment_id": "{% faker 'randomInt' %}",
+                  "payhere_amount": "1500.00",
+                  "payhere_currency": "LKR",
+                  "status_code": "-1",
+                  "md5sig": "test_signature",
+                  "status_message": "Payment declined by bank"
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{BASE_URL}}/webhooks/payhere/test"
+            name: PayHere Webhook Test - Success
+            meta:
+              id: req_c2722b6daf1d4db9b2492baa696c9e0b
+              created: 1766233594500
+              modified: 1766306074438
+              isPrivate: false
+              description: Test endpoint for PayHere webhooks (bypasses signature
+                verification). Status code 2 = Success
+              sortKey: -1766233592120
+            method: POST
+            body:
+              mimeType: text/plain
+              text: |-
+                {
+                  "merchant_id": "1234567",
+                  "order_id": "{{BOOKING_ID}}",
+                  "payment_id": "{% faker 'randomInt' %}",
+                  "payhere_amount": "1500.00",
+                  "payhere_currency": "LKR",
+                  "status_code": "2",
+                  "md5sig": "test_signature",
+                  "method": "VISA",
+                  "card_holder_name": "John Doe",
+                  "card_no": "************1234"
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+            scripts:
+              afterResponse: |-
+                insomnia.test('Status code is 200', function () {
+                    insomnia.response.to.have.status(200);
+                });
+
+                insomnia.test('Webhook received successfully', function () {
+                    const jsonData = insomnia.response.json();
+                    insomnia.expect(jsonData.received).to.be.true;
+                });
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{BASE_URL}}/webhooks/payhere"
+            name: PayHere Webhook Production (with signature)
+            meta:
+              id: req_5c8ec4bad66c4d4da0c05275eb18b182
+              created: 1766233594501
+              modified: 1766306074394
+              isPrivate: false
+              description: Production PayHere webhook endpoint. Requires valid HMAC signature
+                in x-payhere-signature header.
+              sortKey: -1766233592117
+            method: POST
+            body:
+              mimeType: application/x-www-form-urlencoded
+              params:
+                - name: merchant_id
+                  value: "1234567"
+                  disabled: false
+                - name: order_id
+                  value: "{{BOOKING_ID}}"
+                  disabled: false
+                - name: payment_id
+                  value: "320012345"
+                  disabled: false
+                - name: payhere_amount
+                  value: "1500.00"
+                  disabled: false
+                - name: payhere_currency
+                  value: LKR
+                  disabled: false
+                - name: status_code
+                  value: "2"
+                  disabled: false
+                - name: md5sig
+                  value: generated_md5_signature
+                  disabled: false
+            headers:
+              - name: Content-Type
+                value: application/x-www-form-urlencoded
+              - name: x-payhere-signature
+                value: YOUR_HMAC_SIGNATURE_HERE
+                description: Required HMAC-SHA256 signature
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{BASE_URL}}/webhooks/payhere/test"
+            name: PayHere Webhook Test - Cancelled
+            meta:
+              id: req_cc3c58b3d4aa4d7d9c3299b383829f3d
+              created: 1766233594501
+              modified: 1766306074454
+              isPrivate: false
+              description: Test webhook for cancelled payment. Status code -2 = Cancelled
+              sortKey: -1766233592118
+            method: POST
+            body:
+              mimeType: text/plain
+              text: |-
+                {
+                  "merchant_id": "1234567",
+                  "order_id": "{{_['BOOKING_ID']}}",
+                  "payment_id": "{% faker 'randomInt' %}",
+                  "payhere_amount": "1500.00",
+                  "payhere_currency": "LKR",
+                  "status_code": "-2",
+                  "md5sig": "test_signature",
+                  "status_message": "Payment cancelled by user"
+                }
+            headers:
+              - name: Content-Type
+                value: application/json
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+      - name: Health Checks
+        meta:
+          id: fld_e39072c7693a4c12922c861e16b1cac8
+          created: 1766233594501
+          modified: 1766306074363
+          sortKey: -1766233592116
+          description: Health check endpoints for monitoring and Kubernetes probes
+        children:
+          - url: "{{BASE_URL}}/health"
+            name: Overall Health Check
+            meta:
+              id: req_589e1c75fdce456eb89f7cbd416d899b
+              created: 1766233594501
+              modified: 1766306074380
+              isPrivate: false
+              description: Check overall service health including database connectivity
+              sortKey: -1766233592115
+            method: GET
+            scripts:
+              afterResponse: |-
+                insomnia.test('Status code is 200', function () {
+                    insomnia.response.to.have.status(200);
+                });
+
+                insomnia.test('Service status is ok', function () {
+                    const jsonData = insomnia.response.json();
+                    insomnia.expect(jsonData.status).to.equal('ok');
+                });
+
+                insomnia.test('Response contains uptime', function () {
+                    const jsonData = insomnia.response.json();
+                    insomnia.expect(jsonData).to.have.property('uptime');
+                });
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{BASE_URL}}/health/live"
+            name: Liveness Probe
+            meta:
+              id: req_d4c3a84ab9674405adb6d02e8748ee94
+              created: 1766233594502
+              modified: 1766306074487
+              isPrivate: false
+              description: Kubernetes liveness probe - checks if service is alive
+              sortKey: -1766233592112
+            method: GET
+            scripts:
+              afterResponse: |-
+                insomnia.test('Status code is 200', function () {
+                    insomnia.response.to.have.status(200);
+                });
+
+                insomnia.test('Service is alive', function () {
+                    const jsonData = insomnia.response.json();
+                    insomnia.expect(jsonData.status).to.equal('alive');
+                });
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{BASE_URL}}/health/ready"
+            name: Readiness Probe
+            meta:
+              id: req_d82f96203566404f879b4cb4b458bfd9
+              created: 1766233594502
+              modified: 1766306074504
+              isPrivate: false
+              description: Kubernetes readiness probe - checks if service is ready to accept
+                traffic
+              sortKey: -1766233592113
+            method: GET
+            scripts:
+              afterResponse: |-
+                insomnia.test('Status code is 200', function () {
+                    insomnia.response.to.have.status(200);
+                });
+
+                insomnia.test('Service is ready', function () {
+                    const jsonData = insomnia.response.json();
+                    insomnia.expect(jsonData.status).to.equal('ready');
+                });
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+          - url: "{{BASE_URL}}/health/database"
+            name: Database Health Check
+            meta:
+              id: req_df00cdc7a2734a30a0a9b2899f6d401d
+              created: 1766233594502
+              modified: 1766306074518
+              isPrivate: false
+              description: Check database connectivity and response time
+              sortKey: -1766233592114
+            method: GET
+            scripts:
+              afterResponse: >-
+                insomnia.test('Status code is 200', function () {
+                    insomnia.response.to.have.status(200);
+                });
+
+
+                insomnia.test('Database is connected', function () {
+                    const jsonData = insomnia.response.json();
+                    insomnia.expect(jsonData.database.status).to.equal('connected');
+                });
+            settings:
+              renderRequestBody: true
+              encodeUrl: true
+              followRedirects: global
+              cookies:
+                send: true
+                store: true
+              rebuildPath: true
+    environment:
+      BASE_URL: http://localhost:4002/api/v1
+    environmentPropertyOrder:
+      "&":
+        - BASE_URL
+cookieJar:
+  name: Default Jar
+  meta:
+    id: jar_6e216956c8239ee241de26da2ac7a2ecf288f9c3
+    created: 1766306074590
+    modified: 1766292321711
+environments:
+  name: Base Environment
+  meta:
+    id: env_6e216956c8239ee241de26da2ac7a2ecf288f9c3
+    created: 1766228280708
+    modified: 1766292321721
+    isPrivate: false
+  data:
+    BOOKING_ID: BOOKING-6
+    IDEMPOTENCY_KEY: idempotency-1766292320620
+    PAYMENT_ID: df94f69f-1d69-47ed-8271-34c5e180d508
+    base_url: "{{ _.scheme }}://{{ _.host }}{{ _.base_path }}"
+  subEnvironments:
+    - name: OpenAPI env example.com
+      meta:
+        id: env_1d417240c114490d94b93e6f6532ba82
+        created: 1766228494945
+        modified: 1766306074314
+        isPrivate: false
+        sortKey: 1766228494945
+      data:
+        base_path: ""
+        host: example.com
+        scheme: http

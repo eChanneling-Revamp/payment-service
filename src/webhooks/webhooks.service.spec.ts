@@ -1,26 +1,38 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WebhooksService } from './webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
-import * as verifier from '../shared/utils/signature-verifier';
-import * as parser from './parsers/payhere.webhook-parser';
+import { PaymentRepository } from '../persistence/repositories/payment.repository';
+import { EventRepository } from '../persistence/repositories/event.repository';
 import { HttpException } from '@nestjs/common';
+import * as payHereAdapter from '../psp-adapters/payhere.adapter';
 
 describe('WebhooksService', () => {
   let service: WebhooksService;
   let prisma: PrismaService;
 
   const mockPrisma = {
-    paymentEvent: { findFirst: jest.fn(), create: jest.fn() },
-    payment: { findFirst: jest.fn(), update: jest.fn() },
     webhookAuditLog: { create: jest.fn() },
     $transaction: jest.fn(),
   };
 
+  const mockPaymentRepo = {
+    findByPspOrBooking: jest.fn(),
+    updateStatus: jest.fn(),
+  };
+
+  const mockEventRepo = {
+    existsWebhookEvent: jest.fn(),
+    createWebhookEvent: jest.fn(),
+  };
+
   beforeEach(async () => {
+    process.env.PAYHERE_MERCHANT_SECRET = 'test_merchant_secret';
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WebhooksService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: PaymentRepository, useValue: mockPaymentRepo },
+        { provide: EventRepository, useValue: mockEventRepo },
       ],
     }).compile();
 
@@ -29,78 +41,87 @@ describe('WebhooksService', () => {
 
     jest.clearAllMocks();
   });
+  it('should have PAYHERE_MERCHANT_SECRET set in the environment', () => {
+    expect(process.env.PAYHERE_MERCHANT_SECRET).toBe('test_merchant_secret');
+  });
 
   it('rejects invalid signature', async () => {
-    jest.spyOn(verifier, 'verifyPayHereSignature').mockReturnValue(false);
-    await expect(service.handlePayHereWebhook('{}', {})).rejects.toThrow(
-      HttpException,
-    );
+    await expect(
+      service.handlePayHereWebhook(
+        { merchant_id: '123', order_id: 'ord1', md5sig: 'INVALID' }
+      ),
+    ).rejects.toThrow(HttpException);
   });
 
   it('handles duplicate webhook', async () => {
-    jest.spyOn(verifier, 'verifyPayHereSignature').mockReturnValue(true);
-    jest.spyOn(parser, 'parsePayHerePayload').mockReturnValue({
-      pspPaymentId: 'psp-1',
-      statusCode: 2,
-      orderId: 'order-1',
-      raw: {},
-    });
-    mockPrisma.paymentEvent.findFirst.mockResolvedValue({
-      id: 'event-1',
-    });
+    jest
+      .spyOn(payHereAdapter, 'verifyPayHereNotification')
+      .mockReturnValue(true);
+    mockEventRepo.existsWebhookEvent.mockResolvedValue(true);
 
-    const res = await service.handlePayHereWebhook('{}', {
-      'x-payhere-signature': 'sig',
-    });
+    const payload = {
+      merchant_id: '123',
+      order_id: 'ord1',
+      payment_id: 'psp-1',
+      payhere_amount: '100.00',
+      payhere_currency: 'LKR',
+      status_code: '2',
+      md5sig: 'VALID'
+    };
+    const res = await service.handlePayHereWebhook(payload);
     expect(res).toEqual({ ok: true, duplicate: true });
+    expect(payHereAdapter.verifyPayHereNotification).toHaveBeenCalledWith(payload, 'test_merchant_secret');
   });
 
   it('creates audit log for unknown payment', async () => {
-    jest.spyOn(verifier, 'verifyPayHereSignature').mockReturnValue(true);
-    jest.spyOn(parser, 'parsePayHerePayload').mockReturnValue({
-      pspPaymentId: 'psp-2',
-      statusCode: 2,
-      orderId: 'order-2',
-      raw: {},
-    });
-    mockPrisma.paymentEvent.findFirst.mockResolvedValue(null);
-    mockPrisma.payment.findFirst.mockResolvedValue(null);
-    mockPrisma.webhookAuditLog.create.mockResolvedValue({
-      id: 'log-1',
-    });
+    jest
+      .spyOn(payHereAdapter, 'verifyPayHereNotification')
+      .mockReturnValue(true);
+    mockEventRepo.existsWebhookEvent.mockResolvedValue(false);
+    mockPaymentRepo.findByPspOrBooking.mockResolvedValue(null);
+    mockPrisma.webhookAuditLog.create.mockResolvedValue({ id: 'log-1' });
 
-    const res = await service.handlePayHereWebhook('{}', {
-      'x-payhere-signature': 'sig',
-    });
+    const payload = {
+      merchant_id: '123',
+      order_id: 'ord2',
+      payment_id: 'psp-2',
+      payhere_amount: '100.00',
+      payhere_currency: 'LKR',
+      status_code: '2',
+      md5sig: 'VALID'
+    };
+    const res = await service.handlePayHereWebhook(payload);
     expect(mockPrisma.webhookAuditLog.create).toHaveBeenCalled();
     expect(res).toHaveProperty('note', 'unknown_payment');
+    expect(payHereAdapter.verifyPayHereNotification).toHaveBeenCalledWith(payload, 'test_merchant_secret');
   });
 
   it('processes webhook and updates payment', async () => {
-    jest.spyOn(verifier, 'verifyPayHereSignature').mockReturnValue(true);
-    jest.spyOn(parser, 'parsePayHerePayload').mockReturnValue({
-      pspPaymentId: 'psp-3',
-      statusCode: 2,
-      orderId: 'order-3',
-      raw: { reference: 'ref-1', merchant_reference: 'mref' },
-    });
-    mockPrisma.paymentEvent.findFirst.mockResolvedValue(null);
+    jest
+      .spyOn(payHereAdapter, 'verifyPayHereNotification')
+      .mockReturnValue(true);
+    mockEventRepo.existsWebhookEvent.mockResolvedValue(false);
     const paymentObj = { id: 'pay-3', status: 'CREATED' };
-    mockPrisma.payment.findFirst.mockResolvedValue(paymentObj);
+    mockPaymentRepo.findByPspOrBooking.mockResolvedValue(paymentObj);
 
     mockPrisma.$transaction.mockImplementation(async (fn: any) => {
-      const tx = {
-        payment: { update: jest.fn().mockResolvedValue(true) },
-        paymentEvent: { create: jest.fn().mockResolvedValue(true) },
-      };
+      const tx = {};
       await fn(tx);
       return true;
     });
 
-    const res = await service.handlePayHereWebhook('{}', {
-      'x-payhere-signature': 'sig',
-    });
+    const payload = {
+      merchant_id: '123',
+      order_id: 'ord3',
+      payment_id: 'psp-3',
+      payhere_amount: '100.00',
+      payhere_currency: 'LKR',
+      status_code: '2',
+      md5sig: 'VALID'
+    };
+    const res = await service.handlePayHereWebhook(payload);
     expect(res).toEqual({ ok: true });
     expect(mockPrisma.$transaction).toHaveBeenCalled();
+    expect(payHereAdapter.verifyPayHereNotification).toHaveBeenCalledWith(payload, 'test_merchant_secret');
   });
 });

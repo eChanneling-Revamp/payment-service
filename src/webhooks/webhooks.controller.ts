@@ -6,6 +6,7 @@ import {
   HttpCode,
   Body,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,7 +21,9 @@ import { WebhooksService } from './webhooks.service';
 @ApiTags('webhooks')
 @Controller('webhooks')
 export class WebhooksController {
-  constructor(private readonly webhooksService: WebhooksService) {}
+  private readonly logger = new Logger(WebhooksController.name);
+
+  constructor(private readonly webhooksService: WebhooksService) { }
 
   @Post('payhere')
   @HttpCode(200)
@@ -29,35 +32,22 @@ export class WebhooksController {
     description:
       'Receives payment notifications from PayHere payment gateway. Requires valid HMAC signature for security.',
   })
-  @ApiHeader({
-    name: 'x-payhere-signature',
-    required: true,
-    description: 'HMAC-SHA256 signature for webhook verification',
-    schema: { type: 'string' },
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Webhook processed successfully',
-    schema: {
-      example: {
-        ok: true,
-      },
-    },
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid signature - webhook authentication failed',
-  })
   @ApiResponse({
     status: 400,
     description: 'Missing payment ID or invalid webhook payload',
   })
   async payHereWebhook(
-    @Req() req: Request,
-    @Headers() headers: Record<string, any>,
+    @Body() payload: any,
   ) {
-    const rawBody = (req as any).rawBody ?? JSON.stringify(req.body);
-    return this.webhooksService.handlePayHereWebhook(rawBody, headers);
+    this.logger.log(`Received PayHere webhook`);
+    this.logger.debug(`Webhook Body: ${JSON.stringify(payload)}`);
+
+    try {
+      return await this.webhooksService.handlePayHereWebhook(payload);
+    } catch (error) {
+      this.logger.error(`Error processing PayHere webhook`, error);
+      throw error;
+    }
   }
 
   @Post('payhere/test')
@@ -82,11 +72,6 @@ export class WebhooksController {
     if (process.env.NODE_ENV === 'production') {
       throw new ForbiddenException('Test endpoint disabled in production');
     }
-    return {
-      received: true,
-      message: 'Test webhook - signature bypassed',
-      body,
-      timestamp: new Date().toISOString(),
-    };
+    return this.webhooksService.handleTestWebhook(body);
   }
 }

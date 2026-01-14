@@ -1,6 +1,7 @@
 export default () => ({
   node_env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3000', 10),
+  baseUrl: process.env.BACKEND_BASE_URL || '',
   apiPrefix: process.env.API_PREFIX || 'api/v1',
 
   database: {
@@ -25,9 +26,24 @@ export default () => ({
   },
 
   security: {
-    corsOrigin: process.env.CORS_ORIGIN?.split(',') || [
-      'http://localhost:3000',
-    ],
+    corsOrigin: (() => {
+      const envOrigins = process.env.CORS_ORIGINS;
+      if (envOrigins) {
+        return envOrigins.split(',').map(origin => origin.trim());
+      }
+      
+      // Default CORS origins for development and common frontend domains
+      const defaultOrigins = [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:4200', 
+        'https://payhere-react-demo.vercel.app',
+        'https://*.vercel.app'
+      ];
+      
+      console.warn('CORS_ORIGINS environment variable is not set. Using default origins:', defaultOrigins);
+      return defaultOrigins;
+    })(),
   },
 
   rateLimit: {

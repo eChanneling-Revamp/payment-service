@@ -1,0 +1,53 @@
+name : main ci workflow
+
+on:
+    push:
+        branches:
+            - feature/*
+            - bugfix/*
+            - ci/*
+    workflow_dispatch:        
+
+
+jobs: 
+    ci:
+        runs-on: ubuntu-latest
+        
+        env: 
+            DATABASE_URL: ${{secrets.DATABASE_URL}}
+            BASE_URL: ${{secrets.BACKEND_BASE_URL}}
+            FRONTEND_BASE_URL: ${{secrets.FRONTEND_BASE_URL}}
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v5
+              
+            - name: Set up Node.js
+              uses: actions/setup-node@v6  
+              with:
+                    node-version: '24.x'
+                    cache: 'npm'
+            
+            - name: Install dependencies
+              run: npm install          
+
+            - name: Generate prisma client
+              run: npx prisma generate
+
+            - name: Validate Prisma Schema
+              run: npx prisma validate    
+
+            - name: Apply Migrations (CI DB)
+              run: npx prisma migrate deploy
+
+            - name: Run unit Tests
+              run: npm test
+
+
+
+
+
+
+
+               
+

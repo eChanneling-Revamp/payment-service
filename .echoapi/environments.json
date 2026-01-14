@@ -1,0 +1,35 @@
+{
+  "environments": {
+    "Development": {
+      "BASE_URL": "http://localhost:3000/api/v1",
+      "MERCHANT_ID": "1234567",
+      "MERCHANT_SECRET": "your_dev_secret_here",
+      "DB_NAME": "payment_service_dev",
+      "LOG_LEVEL": "debug",
+      "WEBHOOK_URL": "http://localhost:3000/api/v1/webhooks/payhere"
+    },
+    "Staging": {
+      "BASE_URL": "https://staging-payment.yourdomain.com/api/v1", 
+      "MERCHANT_ID": "staging_merchant_id",
+      "MERCHANT_SECRET": "your_staging_secret_here",
+      "DB_NAME": "payment_service_staging",
+      "LOG_LEVEL": "info",
+      "WEBHOOK_URL": "https://staging-payment.yourdomain.com/api/v1/webhooks/payhere"
+    },
+    "Production": {
+      "BASE_URL": "https://payment.yourdomain.com/api/v1",
+      "MERCHANT_ID": "prod_merchant_id", 
+      "MERCHANT_SECRET": "your_prod_secret_here",
+      "DB_NAME": "payment_service_prod",
+      "LOG_LEVEL": "error",
+      "WEBHOOK_URL": "https://payment.yourdomain.com/api/v1/webhooks/payhere"
+    }
+  },
+  "globals": {
+    "BOOKING_ID": "BOOKING-{{$timestamp}}",
+    "IDEMPOTENCY_KEY": "idempotency-{{$timestamp}}", 
+    "TEST_USER_ID": "user-{{$randomInt}}",
+    "TEST_AMOUNT": "1500.00",
+    "TEST_CURRENCY": "LKR"
+  }
+}

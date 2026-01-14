@@ -43,22 +43,6 @@ async function main() {
 
   console.log('Created test event:', testEvent);
 
-  // Seed example: Create an idempotency key
-  const testIdempotencyKey = await prisma.idempotencyKey.upsert({
-    where: { key: 'test-idempotency-key-001' },
-    update: {},
-    create: {
-      key: 'test-idempotency-key-001',
-      requestHash: 'test-hash-001',
-      responseStatus: 201,
-      responseBody: {
-        id: testPayment.id,
-        status: 'CREATED',
-      },
-    },
-  });
-
-  console.log('Created test idempotency key:', testIdempotencyKey);
 
   console.log('Database seeding completed successfully!');
 }

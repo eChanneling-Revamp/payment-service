@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  labels:
+    app: payment-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: payment-service
+          # This image tag will be replaced or pinned in the CI pipeline
+          image: ghcr.io/<your-github-username>/payment-service:latest 
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000 # Default internal port
+          envFrom:
+            - secretRef:
+                name: payment-service-secrets
+          # Liveness and Readiness probes to ensure auto-restart works
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
