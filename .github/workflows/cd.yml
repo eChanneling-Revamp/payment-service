@@ -185,8 +185,8 @@ jobs:
           podman rm -f "$CONTAINER" || true
 
           # Wait for port cleanup to avoid 'Address already in use' errors
-          echo "Waiting 10s for port to be released..."
-          sleep 10
+          echo "Waiting 2s for port to be released..."
+          sleep 2
 
           echo "Starting new container"
           podman run -d \
