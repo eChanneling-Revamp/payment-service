@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - dev
+      - cicd/*
   workflow_dispatch:
 
 env:
@@ -167,44 +168,97 @@ jobs:
 
       - name: Deploy image on remote server using podman
         run: |
-          ssh -o StrictHostKeyChecking=yes -p ${{ secrets.DEV_SERVER_SSH_PORT }} ${{ secrets.DEV_SERVER_USER }}@${{ secrets.DEV_SERVER_HOST }} << 'REMOTE_EOF'
+          ssh -o StrictHostKeyChecking=yes -p ${{ secrets.DEV_SERVER_SSH_PORT }} ${{ secrets.DEV_SERVER_USER }}@${{ secrets.DEV_SERVER_HOST }} << REMOTE_EOF
           set -euo pipefail
 
-          # image to deploy (uses latest tag)
-          IMAGE="ghcr.io/${{ env.IMAGE_NAME }}:latest"
+          # Configuration
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-${GITHUB_SHA::7}"
           CONTAINER="payment-service"
+          PORT="${{ vars.PORT }}"
+          CONF_DIR="\$HOME/.config/\$CONTAINER"
+          ENV_FILE="\$CONF_DIR/.env"
 
-          echo "Logging into ghcr.io..."
+          echo "=== Logging into ghcr.io ==="
           echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u ${{ github.actor }} --password-stdin
 
-          echo "Pulling image: $IMAGE"
-          podman pull "$IMAGE"
+          echo "=== Recording current image for rollback ==="
+          OLD_IMAGE=\$(podman inspect --format='{{.ImageName}}' "\$CONTAINER" 2>/dev/null || echo "")
+          echo "Current image: \${OLD_IMAGE:-none}"
 
-          echo "Stopping and removing existing container (if any)"
-          # Force remove the container if it exists (handles stop and rm)
-          podman rm -f "$CONTAINER" || true
+          echo "=== Creating secure environment file ==="
+          mkdir -p "\$CONF_DIR"
+          {
+            echo "DATABASE_URL=${{ secrets.DATABASE_URL }}"
+            echo "PAYHERE_MERCHANT_ID=${{ secrets.PAYHERE_MERCHANT_ID }}"
+            echo "PAYHERE_MERCHANT_SECRET=${{ secrets.PAYHERE_MERCHANT_SECRET }}"
+            echo "NODE_ENV=${{ vars.NODE_ENV }}"
+            echo "PORT=${{ vars.PORT }}"
+            echo "PAYHERE_MODE=${{ vars.PAYHERE_MODE }}"
+            echo "BACKEND_BASE_URL=${{ secrets.BACKEND_BASE_URL }}"
+            echo "FRONTEND_BASE_URL=${{ secrets.FRONTEND_BASE_URL }}"
+          } > "\$ENV_FILE"
+          chmod 600 "\$ENV_FILE"
 
-          # Wait for port cleanup to avoid 'Address already in use' errors
-          echo "Waiting 2s for port to be released..."
-          sleep 2
+          echo "=== Pulling image: \$IMAGE ==="
+          podman pull "\$IMAGE"
 
-          echo "Starting new container"
+          echo "=== Stopping existing deployment ==="
+          # Stop systemd service first if it exists (avoids conflicts)
+          systemctl --user stop "\$CONTAINER.service" 2>/dev/null || true
+          podman rm -f "\$CONTAINER" 2>/dev/null || true
+
+          echo "=== Starting new container ==="
           podman run -d \
-            --name "$CONTAINER" \
-            --replace \
-            --restart=always \
-            -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
-            -e PAYHERE_MERCHANT_ID='${{ secrets.PAYHERE_MERCHANT_ID }}' \
-            -e PAYHERE_MERCHANT_SECRET='${{ secrets.PAYHERE_MERCHANT_SECRET }}' \
-            -e NODE_ENV='${{ vars.NODE_ENV }}' \
-            -e PORT='${{ vars.PORT }}' \
-            -e PAYHERE_MODE='${{ vars.PAYHERE_MODE }}' \
-            -e BACKEND_BASE_URL='${{ secrets.BACKEND_BASE_URL }}' \
-            -e FRONTEND_BASE_URL='${{ secrets.FRONTEND_BASE_URL }}' \
-            -p ${{ vars.PORT }}:${{ vars.PORT }} \
-            "$IMAGE"
+            --name "\$CONTAINER" \
+            --restart=on-failure \
+            --env-file "\$ENV_FILE" \
+            -p "\$PORT":"\$PORT" \
+            "\$IMAGE"
 
-          echo "Container status:"
-          podman ps -a --filter "name=$CONTAINER"
+          echo "=== Health check (timeout 90s) ==="
+          HEALTHY=false
+          for i in \$(seq 1 18); do
+            if curl -sf "http://localhost:\$PORT/api/v1/health" > /dev/null 2>&1; then
+              HEALTHY=true
+              break
+            fi
+            echo "  Attempt \$i/18 — waiting 5s..."
+            sleep 5
+          done
+
+          if [ "\$HEALTHY" = false ]; then
+            echo "❌ Health check failed! Dumping logs for debugging..."
+            podman logs "\$CONTAINER" 2>&1 | tail -50
+            podman rm -f "\$CONTAINER" || true
+
+            if [ -n "\$OLD_IMAGE" ]; then
+              echo "=== Rolling back to: \$OLD_IMAGE ==="
+              podman run -d \
+                --name "\$CONTAINER" \
+                --restart=on-failure \
+                --env-file "\$ENV_FILE" \
+                -p "\$PORT":"\$PORT" \
+                "\$OLD_IMAGE"
+              echo "✅ Rollback complete."
+            else
+              echo "⚠️ No previous image to roll back to. Service is DOWN."
+            fi
+            exit 1
+          fi
+
+          echo "✅ New deployment is healthy!"
+
+          echo "=== Configuring systemd for auto-restart ==="
+          SYSTEMD_DIR="\$HOME/.config/systemd/user"
+          mkdir -p "\$SYSTEMD_DIR"
+
+          podman generate systemd --name "\$CONTAINER" --new --restart-policy=on-failure \
+            > "\$SYSTEMD_DIR/\$CONTAINER.service"
+
+          systemctl --user daemon-reload
+          systemctl --user enable "\$CONTAINER.service"
+          loginctl enable-linger "\$USER"
+
+          echo "🚀 Deployment complete and configured for auto-restart!"
           REMOTE_EOF
         shell: bash
