@@ -19,6 +19,8 @@ COPY src ./src
 
 RUN npm run build
 
+RUN npm prune --production
+
 # ----------- Stage 2: Runtime -----------
 FROM node:22-alpine 
 
