@@ -37,6 +37,16 @@ export class PaymentsController {
     return this.paymentsService.createPayment(body);
   }
 
+  @Get()
+  @ApiOperation({ summary: 'Get all payments' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of all payments',
+  })
+  async getAllPayments() {
+    return this.paymentsService.getAllPayments();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get payment by ID' })
   @ApiParam({ name: 'id', description: 'Payment UUID' })

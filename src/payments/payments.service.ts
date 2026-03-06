@@ -108,6 +108,12 @@ export class PaymentsService {
     return payment;
   }
 
+  async getAllPayments() {
+    return this.prisma.payment.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   private handlePrismaError(error: any): never {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
